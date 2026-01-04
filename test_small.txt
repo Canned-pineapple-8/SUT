@@ -1,0 +1,42 @@
+kotlin_prog Example {
+    def {
+        // Примитивные переменные
+        var x, y: Int
+        var temp: Float
+        var isActive: Boolean
+
+        // Вложенные структуры
+        data_class Address(
+             city: Int,
+             zip: Int
+        )
+
+        data_class Person(
+            age: Int,
+            salary: Float,
+            address: Address
+        )
+
+        var p: Person
+        var k: Address
+    }
+
+    fun_main() {
+        x = (10 + 5) * 3 - 2        // 43
+        temp = 3.14e14 * 100.0
+        isActive = true
+
+        p.age = 25
+        p.salary = temp + 500.0
+        k = p.address
+        k.zip = 1
+
+        if ((x >= 40) && (!isActive) || (p.age == 25)) {
+            y = x / 2
+            p.salary = p.salary * 1.1
+        } else {
+            y = 0
+        }
+        // Комментарий в конце
+    }
+}
