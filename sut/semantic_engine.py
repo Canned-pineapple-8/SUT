@@ -7,32 +7,46 @@ from sut.base_type import Type
 
 
 class SemanticEngine:
+    """
+    Семантический движок (содержит все семантические действия)
+    """
     def __init__(self, symbol_table: SymbolTable, instruction_table:IntructionTable):
-        self.attr_stack = []             # стек атрибутов
-        self.symbol_table = symbol_table
-        self.instruction_table = instruction_table
+        self.attr_stack = []  # стек атрибутов
+        self.symbol_table = symbol_table  # указатель на таблицу символов
+        self.instruction_table = instruction_table  # указатель на таблицу команд
 
-    # стек атрибутов
     def push(self, value: Any):
+        """
+        Поместить атрибут в стек
+        """
         self.attr_stack.append(value)
 
     def pop(self) -> Any:
+        """
+        Извлечь атрибут из стека
+        """
         if not self.attr_stack:
             raise RuntimeError("Стек поврежден")
         return self.attr_stack.pop()
 
-    # базовые вспомогательные методы
     def check_cat(self, pnt:SymbolTableEntry, expected_cat:Category, err_code:int):
+        """
+        Метод для проверки категории
+        """
         if pnt.category != expected_cat:
             Type_Error(err_code)
 
-    # семантические действия
     def execute(self, action_code: str, token):
+        """
+        Выполнить семантическое действие
+        """
         method_name = f"A{action_code}"
         method = getattr(self, method_name, None)
         if not method:
             raise NotImplementedError(f"Семантическое действие {action_code} не определено")
         return method(token)
+
+    # <-------- семантические действия -------->
 
     def A1(self, ident:SymbolTableEntry):
         self.check_cat(ident, Category.catNoCat, 1)
@@ -73,12 +87,11 @@ class SemanticEngine:
 
     def A9(self, ident:SymbolTableEntry):
         self.check_cat(ident, Category.catTypeName, 2)
-        field = self.pop()  # указатель на лексему поля (age)
-        record = self.pop()  # указатель на тип Person
+        field = self.pop()  # указатель на лексему поля
+        record = self.pop()  # указатель на тип структуры
 
         self.symbol_table.add_type(field, Category.catTypeName, ident)
         field.lexem = f"{record.lexem}.{field.lexem}"
-        # возможно убрать лексему "age"
 
         self.symbol_table.add_field(record, field)
         self.push(record)
@@ -104,7 +117,6 @@ class SemanticEngine:
         if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
             Type_Error(6)
         new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
-        # self.push(parent_record_id)
         self.push(new_ident)
 
     def A13(self, ident:SymbolTableEntry):
@@ -112,10 +124,6 @@ class SemanticEngine:
 
     def A14(self, token):
         pass
-        #ident = self.pop()
-        #address = (ident[0], ident[1])
-        #self.push(ident[0].type)
-        #self.push(address)
 
     def A15(self, token):
         self.push(token)
