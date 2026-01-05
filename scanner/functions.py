@@ -1,8 +1,9 @@
 import os
 from scanner.data import *
-from sut.symbol_table import SymbolTableEntry, SymbolTable
+from sut.symbol_table import SymbolTable
 from sut.enums import *
-from sut.base_type import Type, TypeCode
+from sut.base_type import TypeCode
+
 
 def binary_search(sorted_list, target):
     """Выполняет бинарный поиск target в отсортированном списке с учетом ASCII-кодов.
@@ -125,20 +126,10 @@ def form_token(state, word, attrCodes, keywords, keyword_tokens, symbol_table):
             else:
                 return ("id", pointer)
         case -24:
-            '''if word not in num_table:
-                ind = len(num_table)
-                num_table[word] = ("real", ind)
-                return ("num", word)
-            '''
             pointer = symbol_table.add_lexem(word)
             symbol_table.add_type(pointer, category=Category.catConst, new_type=symbol_table.get_base_type(TypeCode.typeFloat))
             return ("num", pointer)
         case -25:
-            '''if word not in num_table:
-                ind = len(num_table)
-                num_table[word] = ("int", ind)
-                return ("num", word)
-            '''
             pointer = symbol_table.add_lexem(word)
             symbol_table.add_type(pointer, category=Category.catConst, new_type=symbol_table.get_base_type(TypeCode.typeInt))
             return ("num", pointer)
@@ -217,19 +208,3 @@ def print_tokens(token_list, word_table, num_table, filename=None):
     if filename is not None and output_lines:
         with open(filename, 'w', encoding='utf-8') as f:
             f.write('\n'.join(output_lines) + '\n')
-
-'''def main():
-    attr_codes = process_atributes_codes(attr_names)
-    lex_table = dict()
-    num_table = dict()
-
-    file_path = "test_full.txt"
-    input_buffer = read_file_chars(file_path)
-    try:
-        tokens = process_input(input_buffer, attr_codes, keyword_table, keyword_tokens, lex_table, num_table)
-        print("Найденные токены:")
-        print_tokens(tokens,lex_table, num_table, "output.txt")
-    except ValueError as e:
-        print("Ошибка:", e)
-
-main()'''
