@@ -97,6 +97,7 @@ class SymbolTable:
             st_pointer.address = self.next_addr
             self.next_addr += new_type.type.width
 
+            # обработка структур
             if new_type.type.type_code == TypeCode.typeRecord:
                 for field in new_type.fields:
                     pnt = self.add_lexem(f'{st_pointer.lexem}.{field.lexem.split(".")[-1]}')
