@@ -3,17 +3,26 @@ from sut.semantic_engine import SemanticEngine
 
 
 class LL1Parser:
+    """
+    Транслятор
+    """
     def __init__(self, ll_table:LLTable, semantic_engine:SemanticEngine, tokens, symbol_table):
-        self.ll_table:LLTable = ll_table
-        self.sem_engine = semantic_engine
-        self.tokens = tokens
-        self.parser_stack = []
-        self.symbol_table = symbol_table
+        self.ll_table:LLTable = ll_table  # таблица разбора
+        self.sem_engine = semantic_engine  # семантический движок
+        self.tokens = tokens  # токены от сканера
+        self.parser_stack = []  # стек парсера
+        self.symbol_table = symbol_table  # таблица символов
 
     def push(self, val):
+        """
+        Поместить элемент в стек
+        """
         self.parser_stack.append(val)
 
     def pop(self):
+        """
+        Извлечь элемент из стека
+        """
         return self.parser_stack.pop() if self.parser_stack else 0
 
     def parse(self):
@@ -26,8 +35,8 @@ class LL1Parser:
         prev_token = token
         token_index = 0
 
+        # общий алгоритм перемещения по таблице
         while token_index < len(self.tokens) or i != 0:
-            #print(self.symbol_table)
             elem = self.ll_table.get_row(i)
             if elem.action != 0 or token[0] in elem.terminals:
                 if elem.action != 0:

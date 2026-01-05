@@ -22,14 +22,14 @@ class LLTable:
 
     def load_from_xml(self, filename: str):
         """
-        Загружает LL(1)-таблицу из XML.
+        Загружает LL(1)-таблицу из XML
         """
         tree = ET.parse(filename)
         root = tree.getroot()
 
         self.rows.clear()
         for elem in root.findall("Row"):
-            # собираем терминалы из атрибутов Lexeme
+            # собираем терминалы из атрибутов
             terminals_elem = elem.find("Terminals")
             terminals = set()
             if terminals_elem is not None:
@@ -52,7 +52,7 @@ class LLTable:
 
     def get_row(self, index: int) -> LLTableRow:
         """
-        Получение строки по индексу (индексация с 1 для соответствия форме таблицы).
+        Получение строки по индексу (индексация с 1 для соответствия форме таблицы)
         """
         if 1 <= index <= len(self.rows):
             return self.rows[index - 1]
