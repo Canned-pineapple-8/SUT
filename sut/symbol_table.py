@@ -5,29 +5,38 @@ from typing import Dict, List, Optional
 
 
 class SymbolTableEntry:
+    """
+    Запись в таблице символов
+    """
     def __init__(self, lex):
-        self.lexem = lex
-        self.category = Category.catNoCat
-        self.type = None
-        self.fields = None
-        self.address = -1
-        self.offset = -1
+        self.lexem = lex  # лексема
+        self.category = Category.catNoCat  # категория
+        self.type = None  # тип
+        self.fields = None  # поля (для структур)
+        self.address = -1  # адрес (для переменных/полей)
+        self.offset = -1  # смещение (для полей)
 
     def __str__(self):
         return f"{self.lexem}: {self.category}, {self.type}, {self.address}, {self.offset}"
 
-class SymbolTable:
-    def __init__(self):
-        self.entries:List[SymbolTableEntry] = []
-        self.orders:Dict[str, int] = {}
 
-        self.next_addr = 0
-        self.temp_var_name = 0
-        self.base_types = {}
-        self.record_types = {}
-        self.relation_codes = [ OpCode.opEq,  OpCode.opNotEq, OpCode.opGreat,
-                   OpCode.opGreatEq, OpCode.opLess, OpCode.opLessEq,
-                   OpCode.opAnd, OpCode.opOr, OpCode.opNot]
+class SymbolTable:
+    """
+    Таблица символов
+    """
+    def __init__(self):
+        self.entries:List[SymbolTableEntry] = []  # записи
+        self.orders:Dict[str, int] = {}  # порядковый номер по лексеме (на всякий случай)
+
+        self.base_types:Dict[TypeCode, SymbolTableEntry] = {}  # базовые типы (доступ по TypeCode)
+        self.record_types:Dict[str, SymbolTableEntry] = {}  # производные типы (доступ по лексеме)
+
+        self.relation_codes = [OpCode.opEq,  OpCode.opNotEq, OpCode.opGreat,
+                               OpCode.opGreatEq, OpCode.opLess, OpCode.opLessEq,
+                               OpCode.opAnd, OpCode.opOr, OpCode.opNot]  # коды булевых операций
+
+        self.next_addr = 0  # следующий свободный адрес в памяти
+        self.temp_var_name = 0  # следующий уникальный номер временной переменной
 
     def __str__(self):
         text = ''
@@ -36,19 +45,31 @@ class SymbolTable:
         return text
 
     def get_record_type(self, lexem:str) -> Optional[SymbolTableEntry]:
+        """
+        Получить указатель на запись в таблице символов с типом структуры c именем lexem
+        """
         if lexem in self.record_types.keys():
             return self.record_types[lexem]
         return None
 
     def get_base_type(self, type:TypeCode) -> SymbolTableEntry:
+        """
+        Получить указатель на запись в таблице символов с базовым типом по коду типа
+        """
         return self.base_types[type]
 
     def find_lexem(self, lex) -> Optional[SymbolTableEntry]:
+        """
+        Получить указатель на запись в таблице символов с лексемой lexem (если есть)
+        """
         if lex in self.orders:
             return self.entries[self.orders[lex]]
         return None
 
     def add_lexem(self, lex):
+        """
+        Добавить лексему
+        """
         if lex in self.orders:
             return self.entries[self.orders[lex]]
         entry = SymbolTableEntry(lex)
@@ -57,6 +78,9 @@ class SymbolTable:
         return entry
 
     def add_type(self, st_pointer: SymbolTableEntry, category: Category, new_type: SymbolTableEntry):
+        """
+        Добавить тип уже существующей лексеме
+        """
         if st_pointer.category != Category.catNoCat:
             if st_pointer.category != Category.catConst:
                 Type_Error(1)
@@ -76,7 +100,6 @@ class SymbolTable:
             if new_type.type.type_code == TypeCode.typeRecord:
                 for field in new_type.fields:
                     pnt = self.add_lexem(f'{st_pointer.lexem}.{field.lexem.split(".")[-1]}')
-                    # тут нужно передавать не type, а указатель на структуру либо базовый тип (расширить метод таблицы символов, хранить все типы и искать по лексемам)
                     if field.type.type_code in self.base_types.keys():
                         self.add_type(pnt, Category.catVarName, self.get_base_type(field.type.type_code))
                     else:
@@ -89,8 +112,10 @@ class SymbolTable:
                     else:
                         st_pointer.fields.append(pnt)
 
-
     def add_temp_var(self, var_type: SymbolTableEntry) -> SymbolTableEntry:
+        """
+        Создать временную переменную
+        """
         temp_name = f't{self.temp_var_name}'
         self.temp_var_name += 1
         entry = self.add_lexem(temp_name)
@@ -99,6 +124,9 @@ class SymbolTable:
         return entry
 
     def add_field(self, record:SymbolTableEntry, field:SymbolTableEntry):
+        """
+        Привязать поле к структуре
+        """
         base_addr = record.type.width
         while base_addr % field.type.width != 0:
             base_addr += 1
@@ -110,6 +138,9 @@ class SymbolTable:
         record.type.width = base_addr + field.type.width
 
     def add_types(self):
+        """
+        Инициализировать таблицу базовыми типами
+        """
         base_types = [TypeCode.typeInt, TypeCode.typeFloat, TypeCode.typeBool, TypeCode.typeVoid]
         type_words = ["Int", "Float", "Boolean", "Void"]
         for i in range(len(base_types)):
@@ -119,6 +150,9 @@ class SymbolTable:
             self.base_types[base_types[i]] = pnt
 
     def add_constants(self):
+        """
+        Инициализировать таблицу булевыми константами
+        """
         constants = ["true", "false"]
         for i in range(len(constants)):
             pnt = self.add_lexem(constants[i])
@@ -126,6 +160,9 @@ class SymbolTable:
                                   new_type=self.get_base_type(TypeCode.typeBool))
 
     def form_variables_info(self):
+        """
+        Сформировать текстовое представление записей (для вывода на экран)
+        """
         text = ""
         variables = []
         for entry in self.entries:
