@@ -13,7 +13,6 @@ class SymbolTableEntry:
         self.address = -1
         self.offset = -1
 
-
     def __str__(self):
         return f"{self.lexem}: {self.category}, {self.type}, {self.address}, {self.offset}"
 
@@ -109,6 +108,40 @@ class SymbolTable:
         else:
             record.fields.append(field)
         record.type.width = base_addr + field.type.width
+
+    def add_types(self):
+        base_types = [TypeCode.typeInt, TypeCode.typeFloat, TypeCode.typeBool, TypeCode.typeVoid]
+        type_words = ["Int", "Float", "Boolean", "Void"]
+        for i in range(len(base_types)):
+            pnt = self.add_lexem(type_words[i])
+            pnt.category = Category.catTypeName
+            pnt.type = Type(base_types[i])
+            self.base_types[base_types[i]] = pnt
+
+    def add_constants(self):
+        constants = ["true", "false"]
+        for i in range(len(constants)):
+            pnt = self.add_lexem(constants[i])
+            self.add_type(pnt, category=Category.catConst,
+                                  new_type=self.get_base_type(TypeCode.typeBool))
+
+    def form_variables_info(self):
+        text = ""
+        variables = []
+        for entry in self.entries:
+            if entry.address != -1:
+                variables.append(entry)
+        variables.sort(key=lambda e: e.address)
+
+        for entry in variables:
+            if entry.type.type_ptr is not None:
+                record_name = entry.type.type_ptr.lexem
+            else:
+                record_name = ""
+            text += f'{entry.address}: {entry.lexem}\n' \
+                    f'\ttype = {entry.type.type_code} {record_name}\n' \
+                    f'\tsize = {entry.type.width}\n'
+        return text
 
 
 

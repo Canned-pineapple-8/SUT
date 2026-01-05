@@ -1,3 +1,18 @@
+from sut.enums import OpCode
+operation_codes = {
+    OpCode.opAdd: "+",
+    OpCode.opSub: "-",
+    OpCode.opOr: "||",
+    OpCode.opMult: "*",
+    OpCode.opDiv: "/",
+    OpCode.opAnd: "&&",
+    OpCode.opEq: "==",
+    OpCode.opNotEq: "!=",
+    OpCode.opGreat: ">",
+    OpCode.opGreatEq: ">=",
+    OpCode.opLess: "<",
+    OpCode.opLessEq: "<=",
+}
 
 base_types = ["Int", "Float", "Boolean", "Void"]
 
@@ -101,6 +116,7 @@ def process_token_codes(token_names):
         id += 1
     return token_codes
 
+
 # обработка имен атрибутов (присвоение целочисленных величин)
 def process_atributes_codes(atr_names):
     atr_codes = dict()
@@ -109,6 +125,7 @@ def process_atributes_codes(atr_names):
         atr_codes[name] = id
         id += 1
     return atr_codes
+
 
 def sort_keywords(keywords):
     """Сортирует список ключевых слов в лексикографическом порядке с учетом ASCII-кодов (регистрозависимо)."""
