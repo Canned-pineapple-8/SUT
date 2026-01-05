@@ -13,6 +13,7 @@ class Type:
                 self.width = 1
             case _:
                 self.width = width
+        # указатель на запись в таблице символов с производным типом (для структур)
         self.type_ptr = None
 
 
