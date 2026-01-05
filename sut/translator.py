@@ -54,8 +54,11 @@ class LL1Parser:
                     i += 1
                     la = False
                 else:
-                    print(f"Syntax Error at row {i}, token {token}")
-                    break
+                    if token and token[0] and token[0] in ["id", "num"]:
+                        msg_lex = token[1].lexem
+                    else:
+                        msg_lex = token[0]
+                    raise Exception(f"Символ не соответствует грамматике: {msg_lex}")
             if la:
                 token_index += 1
                 prev_token = token

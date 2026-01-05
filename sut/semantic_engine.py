@@ -5,7 +5,6 @@ from typing import Any
 from sut.instructions import IntructionTable
 from sut.base_type import Type
 
-
 class SemanticEngine:
     """
     Семантический движок (содержит все семантические действия)
@@ -29,12 +28,12 @@ class SemanticEngine:
             raise RuntimeError("Стек поврежден")
         return self.attr_stack.pop()
 
-    def check_cat(self, pnt:SymbolTableEntry, expected_cat:Category, err_code:int):
+    def check_cat(self, pnt:SymbolTableEntry, expected_cat:Category, err_code:int, message:str = None):
         """
         Метод для проверки категории
         """
         if pnt.category != expected_cat:
-            Type_Error(err_code)
+            Type_Error(err_code, message)
 
     def execute(self, action_code: str, token):
         """
@@ -49,11 +48,11 @@ class SemanticEngine:
     # <-------- семантические действия -------->
 
     def A1(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catNoCat, 1)
+        self.check_cat(ident, Category.catNoCat, 1, f"Имя программы {ident.lexem} должно быть уникальным")
         self.symbol_table.add_type(ident, Category.catProgName, self.symbol_table.get_base_type(TypeCode.typeVoid))
 
     def A2(self, ident):
-        self.check_cat(ident, Category.catNoCat, 1)
+        self.check_cat(ident, Category.catNoCat, 1, f"Имя переменной {ident.lexem} должно быть уникальным")
         self.push(ident)
 
     def A3(self, token):
@@ -68,11 +67,12 @@ class SemanticEngine:
         self.push(t_type)
 
     def A5(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catTypeName, 2)
+        self.check_cat(ident, Category.catTypeName, 2,
+                       f"Идентификатор {ident.lexem} должен быть именем известного типа (базового или производного)")
         self.push(ident) # кладём указатель на тип
 
     def A6(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catNoCat, 1)
+        self.check_cat(ident, Category.catNoCat, 1, f"Идентификатор {ident.lexem} должен быть уникальным")
         type_pnt = self.symbol_table.add_lexem("temp_type")
         type_pnt.type = Type(TypeCode.typeRecord)
         self.symbol_table.add_type(ident, Category.catTypeName, type_pnt)
@@ -82,11 +82,12 @@ class SemanticEngine:
         self.pop()
 
     def A8(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catNoCat, 1)
+        self.check_cat(ident, Category.catNoCat, 1, f"Идентификатор {ident.lexem} должен быть уникальным")
         self.push(ident)
 
     def A9(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catTypeName, 2)
+        self.check_cat(ident, Category.catTypeName, 2,
+                       f"Идентификатор {ident.lexem} должен быть именем известного типа (базового или производного)")
         field = self.pop()  # указатель на лексему поля
         record = self.pop()  # указатель на тип структуры
 
@@ -97,7 +98,8 @@ class SemanticEngine:
         self.push(record)
 
     def A10(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catVarName, 3)
+        self.check_cat(ident, Category.catVarName, 3,
+                       f"Операнд для присваивания {ident.lexem} должен быть именем переменной")
         self.push(ident)
 
     def A11(self, ident:SymbolTableEntry):
@@ -105,17 +107,17 @@ class SemanticEngine:
         t2 = self.pop()
         t3 = self.pop()
         if t3.type.type_code != t2.type.type_code:
-            Type_Error(4)
+            Type_Error(4, f"Несовпадение типов в операции присваивания: {t3.type.type_code} и {t2.type.type_code}")
         self.instruction_table.generate_instruction(OpCode.opAss, t1[0], -1, t3)
 
     def A12(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catTypeName, 5)
+        self.check_cat(ident, Category.catTypeName, 5, f"Идентификатор поля {ident.lexem} должен быть определён")
         parent_record_id:SymbolTableEntry = self.pop()
         fields = self.symbol_table.find_lexem(parent_record_id.lexem).fields
         if not fields:
-            Type_Error(6)
+            Type_Error(6, f"Поле {ident.lexem} не определено")
         if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
-            Type_Error(6)
+            Type_Error(6, f"Поле {ident.lexem} не определено")
         new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
         self.push(new_ident)
 
@@ -135,7 +137,7 @@ class SemanticEngine:
         t4 = self.pop()
         t5 = self.pop()
         if t5.type.type_code != t2.type.type_code:
-            Type_Error(4)
+            Type_Error(4, f"Несовпадение типов в операции {t3}: {t5.type.type_code} и {t2.type.type_code}")
         if t3 in self.symbol_table.relation_codes:
             self.push(self.symbol_table.get_base_type(TypeCode.typeBool))
         else:
@@ -164,7 +166,7 @@ class SemanticEngine:
         self.A21(ident)
 
     def A23(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catVarName, 3)
+        self.check_cat(ident, Category.catVarName, 3, f"Идентификатор {ident.lexem} должен быть именем переменной")
         self.push(ident)
         self.push((ident, ident.address))
 
@@ -172,7 +174,7 @@ class SemanticEngine:
         t1 = self.pop()
         t2 = self.pop()
         if t2.type.type_code != TypeCode.typeBool:
-            Type_Error(6)
+            Type_Error(6, f"Несовпадение типов в операции {OpCode.opNot}: {t2.type.type_code} и {TypeCode.typeBool}")
         t = self.symbol_table.add_temp_var(self.symbol_table.get_base_type(TypeCode.typeBool))
         self.instruction_table.generate_instruction(OpCode.opNot, t1[0], -1, t)
         self.push(t2)
@@ -208,9 +210,9 @@ class SemanticEngine:
         factor_typ = self.pop()
         fields = self.symbol_table.find_lexem(parent_record_id.lexem).fields
         if not fields:
-            Type_Error(6)
+            Type_Error(6, f"Поле {ident.lexem} не определено")
         if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
-            Type_Error(6)
+            Type_Error(6, f"Поле {ident.lexem} не определено")
         new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
         self.push(new_ident)
         self.push((new_ident, new_ident.address))

@@ -83,7 +83,7 @@ class SymbolTable:
         """
         if st_pointer.category != Category.catNoCat:
             if st_pointer.category != Category.catConst:
-                Type_Error(1)
+                Type_Error(1, f"Идентификатор {st_pointer.lexem} должен быть уникальным")
 
         st_pointer.category = category
         st_pointer.type = new_type.type

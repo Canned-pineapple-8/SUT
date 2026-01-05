@@ -7,8 +7,18 @@ from sut.symbol_table import SymbolTable
 from sut.instructions import IntructionTable
 from sut.base_type import Type
 from sut.enums import *
+import sys
+
 
 def main():
+    default_filename = "test_small.txt"
+
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+    else:
+        filename = default_filename
+        print(f"Имя файла не указано, используется значение по умолчанию: {filename}")
+
     _temp_id = 0
 
     # инициализация таблицы символов
@@ -27,7 +37,7 @@ def main():
     # сканер
     attr_codes = process_atributes_codes(attr_names)
 
-    with open("test_small.txt", "r", encoding="utf-8") as f:
+    with open(filename, "r", encoding="utf-8") as f:
         source_code = f.read()
 
     try:
@@ -51,8 +61,11 @@ def main():
 
     # инициализация транслятора
     parser = LL1Parser(table, engine, tokens, symbol_table)
-    parser.parse()
-
+    try:
+        parser.parse()
+    except Exception as e:
+        print(f"Ошибка в работе транслятора: {e}")
+        return
     # формирование вывода информации
     var_text = symbol_table.form_variables_info()
     print(var_text)

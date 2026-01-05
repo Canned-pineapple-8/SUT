@@ -165,7 +165,10 @@ def process_input(buffer, attrCodes, keywords, keyword_tokens, symbol_table:Symb
         if new_state < 0:  # Конечное состояние
             current_state = 0  # Сброс состояния
             i -= return_steps[new_state]
-            output.append(form_token(new_state, ''.join(buffer[begin:i+1]), attrCodes, keywords, keyword_tokens, symbol_table))
+            token = form_token(new_state, ''.join(buffer[begin:i+1]), attrCodes, keywords, keyword_tokens, symbol_table)
+            output.append(token)
+            if token and token[0] and "err" in token[0]:
+                raise Exception(f"{errors[int(token[0][-1])]} - {char}")
             begin = i + 1
         else:
             current_state = new_state  # Переход в новое состояние
