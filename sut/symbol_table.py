@@ -17,7 +17,7 @@ class SymbolTableEntry:
         self.offset = -1  # смещение (для полей)
 
     def __str__(self):
-        return f"{self.lexem}: {self.category}, {self.type}, {self.address}, {self.offset}"
+        return f"{self.lexem}"
 
 
 class SymbolTable:
@@ -99,6 +99,7 @@ class SymbolTable:
 
             # обработка структур
             if new_type.type.type_code == TypeCode.typeRecord:
+                self.next_addr -= new_type.type.width
                 for field in new_type.fields:
                     pnt = self.add_lexem(f'{st_pointer.lexem}.{field.lexem.split(".")[-1]}')
                     if field.type.type_code in self.base_types.keys():
@@ -172,13 +173,17 @@ class SymbolTable:
         variables.sort(key=lambda e: e.address)
 
         for entry in variables:
-            if entry.type.type_ptr is not None:
+            if entry.type.type_code == TypeCode.typeRecord and entry.type.type_ptr is not None:
                 record_name = entry.type.type_ptr.lexem
             else:
                 record_name = ""
-            text += f'{entry.address}: {entry.lexem}\n' \
-                    f'\ttype = {entry.type.type_code} {record_name}\n' \
-                    f'\tsize = {entry.type.width}\n'
+
+            sep1 = '\t' * (entry.lexem.count('.'))
+            sep2 = '\t' * (entry.lexem.count('.') + 1)
+
+            text += f'{sep1}{str(entry.address).zfill(4)}: {entry.lexem}\n' \
+                    f'{sep2}type = {entry.type.type_code} {record_name}\n' \
+                    f'{sep2}size = {entry.type.width}\n\n'
         return text
 
 

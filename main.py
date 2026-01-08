@@ -1,3 +1,4 @@
+'''
 from scanner.functions import *
 from scanner.data import *
 
@@ -8,7 +9,6 @@ from sut.instructions import IntructionTable
 from sut.base_type import Type
 from sut.enums import *
 import sys
-
 
 def main():
     default_filename = "test_small.txt"
@@ -73,6 +73,25 @@ def main():
     instruction_text = instruction_table.form_instructions_info()
     print(instruction_text)
 
+
+if __name__ == "__main__":
+    main()
+'''
+
+import sys
+from PyQt5.QtWidgets import QApplication
+from gui.main_window import MainWindow
+
+def main():
+    app = QApplication(sys.argv)
+
+    with open("gui/styles.qss", "r", encoding="utf-8") as f:
+        app.setStyleSheet(f.read())
+
+    window = MainWindow()
+    window.show()
+
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()

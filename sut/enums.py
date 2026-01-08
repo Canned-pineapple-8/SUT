@@ -25,7 +25,6 @@ class OpCode(Enum):
     opAss = 4
     opGoto = 5
     opGotoFalse = 6
-    opIfRel = 7
 
     opEq = 8
     opNotEq = 9

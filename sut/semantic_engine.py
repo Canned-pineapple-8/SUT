@@ -107,7 +107,8 @@ class SemanticEngine:
         t2 = self.pop()
         t3 = self.pop()
         if t3.type.type_code != t2.type.type_code:
-            Type_Error(4, f"Несовпадение типов в операции присваивания: {t3.type.type_code} и {t2.type.type_code}")
+            Type_Error(4, f"Несовпадение типов в операции присваивания: {t3.type.type_code} ({t3.lexem}) и "
+                          f"{t2.type.type_code} ({t2.lexem})")
         self.instruction_table.generate_instruction(OpCode.opAss, t1[0], -1, t3)
 
     def A12(self, ident:SymbolTableEntry):
@@ -115,9 +116,9 @@ class SemanticEngine:
         parent_record_id:SymbolTableEntry = self.pop()
         fields = self.symbol_table.find_lexem(parent_record_id.lexem).fields
         if not fields:
-            Type_Error(6, f"Поле {ident.lexem} не определено")
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
         if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
-            Type_Error(6, f"Поле {ident.lexem} не определено")
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
         new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
         self.push(new_ident)
 
@@ -137,7 +138,8 @@ class SemanticEngine:
         t4 = self.pop()
         t5 = self.pop()
         if t5.type.type_code != t2.type.type_code:
-            Type_Error(4, f"Несовпадение типов в операции {t3}: {t5.type.type_code} и {t2.type.type_code}")
+            Type_Error(4, f"Несовпадение типов в операции {t3}: {t5.type.type_code} ({t5.lexem}) и "
+                          f"{t2.type.type_code} ({t2.lexem})")
         if t3 in self.symbol_table.relation_codes:
             self.push(self.symbol_table.get_base_type(TypeCode.typeBool))
         else:
@@ -174,7 +176,7 @@ class SemanticEngine:
         t1 = self.pop()
         t2 = self.pop()
         if t2.type.type_code != TypeCode.typeBool:
-            Type_Error(6, f"Несовпадение типов в операции {OpCode.opNot}: {t2.type.type_code} и {TypeCode.typeBool}")
+            Type_Error(6, f"Несовпадение типов в операции {OpCode.opNot}: {t2.type.type_code} ({t2.lexem}) и {TypeCode.typeBool}")
         t = self.symbol_table.add_temp_var(self.symbol_table.get_base_type(TypeCode.typeBool))
         self.instruction_table.generate_instruction(OpCode.opNot, t1[0], -1, t)
         self.push(t2)
@@ -183,6 +185,8 @@ class SemanticEngine:
     def A25(self, token):
         expr_addr = self.pop()
         expr_type = self.pop()
+        if expr_type.type.type_code != TypeCode.typeBool:
+            Type_Error(7, f"Выражение в условном операторе должно иметь тип bool (текущий тип - {expr_type.type.type_code})")
         instruction = self.instruction_table.generate_instruction(OpCode.opGotoFalse, -1, -1, -1)
         falselist = self.instruction_table.make_list(instruction)
         self.push(falselist)
@@ -193,7 +197,6 @@ class SemanticEngine:
         falselist = self.pop()
         self.instruction_table.backpatch(falselist, instruction.result)
         self.push(self.instruction_table.make_list(instruction_goto))
-        pass
 
     def A27(self, token):
         label = self.instruction_table.generate_instruction(OpCode.label, -1, -1, -1)
@@ -210,9 +213,9 @@ class SemanticEngine:
         factor_typ = self.pop()
         fields = self.symbol_table.find_lexem(parent_record_id.lexem).fields
         if not fields:
-            Type_Error(6, f"Поле {ident.lexem} не определено")
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
         if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
-            Type_Error(6, f"Поле {ident.lexem} не определено")
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
         new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
         self.push(new_ident)
         self.push((new_ident, new_ident.address))

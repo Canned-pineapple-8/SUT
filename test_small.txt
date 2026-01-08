@@ -17,7 +17,7 @@ kotlin_prog Example {
             address: Address
         )
 
-        var p: Person
+        var p, r: Person
         var k: Address
     }
 

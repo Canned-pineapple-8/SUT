@@ -63,7 +63,9 @@ class IntructionTable:
         from scanner.data import operation_codes
         text = ""
 
-        for entry in self.instructions:
+        for i in range(len(self.instructions)):
+            entry = self.instructions[i]
+            text += f"{str(i).zfill(4)}:\n\t"
             if entry.op == OpCode.opAss:
                 text += f"{entry.result.lexem} := {entry.arg1.lexem}\n"
             elif entry.op == OpCode.label:
@@ -74,6 +76,7 @@ class IntructionTable:
                 text += f"!{entry.result.lexem}\n"
             else:
                 text += f"{entry.result.lexem} := {entry.arg1.lexem} {operation_codes[entry.op]} {entry.arg2.lexem}\n"
+            text += "\n"
 
         return text
 
