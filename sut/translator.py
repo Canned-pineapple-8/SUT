@@ -1,6 +1,6 @@
 from sut.ll_table import LLTable
 from sut.semantic_engine import SemanticEngine
-
+from sut.symbol_table import SymbolTableEntry
 
 class LL1Parser:
     """
@@ -64,5 +64,9 @@ class LL1Parser:
                 prev_token = token
                 if token_index < len(self.tokens):
                     token = self.tokens[token_index]
+                    if isinstance(token[1], SymbolTableEntry):
+                        new_token = self.symbol_table.find_lexem(token[1].lexem)
+                        if new_token:
+                            token = token[0], new_token
                 else:
                     return

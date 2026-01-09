@@ -116,23 +116,25 @@ def form_token(state, word, attrCodes, keywords, keyword_tokens, symbol_table):
         case -22:
             return ("rel", OpCode.opLessEq)
         case -23:
-            pointer = symbol_table.add_lexem(word)
             if word in keywords:
                 if word in base_types:
                     return "id", symbol_table.find_lexem(word)
                 if word in bool_constants:
                     return "bool", symbol_table.find_lexem(word)
-                return keyword_tokens[word], pointer
+                else:
+                    pointer = symbol_table.add_lexem(word)
+                    return keyword_tokens[word], pointer
             else:
-                return ("id", pointer)
+                pointer = symbol_table.add_lexem(word)
+                return "id", pointer
         case -24:
             pointer = symbol_table.add_lexem(word)
             symbol_table.add_type(pointer, category=Category.catConst, new_type=symbol_table.get_base_type(TypeCode.typeFloat))
-            return ("num", pointer)
+            return "num", pointer
         case -25:
             pointer = symbol_table.add_lexem(word)
             symbol_table.add_type(pointer, category=Category.catConst, new_type=symbol_table.get_base_type(TypeCode.typeInt))
-            return ("num", pointer)
+            return "num", pointer
         case -26:
             return None
         case -27:

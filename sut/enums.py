@@ -15,6 +15,7 @@ class TypeCode(Enum):
     typeFloat = 2
     typeBool = 3
     typeRecord = 4
+    typeField = 5
 
 
 class OpCode(Enum):

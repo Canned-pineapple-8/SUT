@@ -73,7 +73,7 @@ class IntructionTable:
             elif entry.op in [OpCode.opGoto, OpCode.opGotoFalse]:
                 text += f"{entry.op}: {entry.result}\n"
             elif entry.op == OpCode.opNot:
-                text += f"!{entry.result.lexem}\n"
+                text += f"{entry.result.lexem} := !{entry.arg1.lexem}\n"
             else:
                 text += f"{entry.result.lexem} := {entry.arg1.lexem} {operation_codes[entry.op]} {entry.arg2.lexem}\n"
             text += "\n"

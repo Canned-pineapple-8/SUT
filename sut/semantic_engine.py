@@ -1,5 +1,5 @@
 from sut.enums import Category, TypeCode, OpCode
-from sut.symbol_table import SymbolTableEntry, SymbolTable
+from sut.symbol_table import SymbolTableEntry, SymbolTable, ST_Var, ST_Type
 from sut.error import Type_Error
 from typing import Any
 from sut.instructions import IntructionTable
@@ -73,10 +73,8 @@ class SemanticEngine:
 
     def A6(self, ident:SymbolTableEntry):
         self.check_cat(ident, Category.catNoCat, 1, f"Идентификатор {ident.lexem} должен быть уникальным")
-        type_pnt = self.symbol_table.add_lexem("temp_type")
-        type_pnt.type = Type(TypeCode.typeRecord)
-        self.symbol_table.add_type(ident, Category.catTypeName, type_pnt)
-        self.push(ident)
+        r_ident = self.symbol_table.add_record_type(ident)
+        self.push(r_ident)
 
     def A7(self, token):
         self.pop()
@@ -85,17 +83,15 @@ class SemanticEngine:
         self.check_cat(ident, Category.catNoCat, 1, f"Идентификатор {ident.lexem} должен быть уникальным")
         self.push(ident)
 
-    def A9(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catTypeName, 2,
-                       f"Идентификатор {ident.lexem} должен быть именем известного типа (базового или производного)")
-        field = self.pop()  # указатель на лексему поля
-        record = self.pop()  # указатель на тип структуры
+    def A9(self, t_type:SymbolTableEntry):
+        self.check_cat(t_type, Category.catTypeName, 2,
+                       f"Идентификатор {t_type.lexem} должен быть именем известного типа (базового или производного)")
+        t_field = self.pop()  # указатель на лексему поля
+        t_record = self.pop()  # указатель на тип структуры
 
-        self.symbol_table.add_type(field, Category.catTypeName, ident)
-        field.lexem = f"{record.lexem}.{field.lexem}"
+        f_ident = self.symbol_table.add_field_type(t_field, t_record, t_type)
 
-        self.symbol_table.add_field(record, field)
-        self.push(record)
+        self.push(t_record)
 
     def A10(self, ident:SymbolTableEntry):
         self.check_cat(ident, Category.catVarName, 3,
@@ -112,14 +108,18 @@ class SemanticEngine:
         self.instruction_table.generate_instruction(OpCode.opAss, t1[0], -1, t3)
 
     def A12(self, ident:SymbolTableEntry):
-        self.check_cat(ident, Category.catTypeName, 5, f"Идентификатор поля {ident.lexem} должен быть определён")
+        # self.check_cat(ident, Category.catTypeName, 5, f"Идентификатор поля {ident.lexem} должен быть определён")
         parent_record_id:SymbolTableEntry = self.pop()
-        fields = self.symbol_table.find_lexem(parent_record_id.lexem).fields
+        assert isinstance(parent_record_id, ST_Var)
+        f_type = self.symbol_table.find_lexem(f"{parent_record_id.type.lexem}.{ident.lexem}")
+        if not f_type or f_type.category != Category.catTypeName:
+            Type_Error(5, f"Идентификатор поля {ident.lexem} должен быть определён")
+        fields = parent_record_id.fields
         if not fields:
-            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
-        if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
-            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
-        new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.lexem} не определено")
+        if not ident.lexem in [field.lexem.split(".")[-1] for field in fields]:
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.lexem} не определено")
+        new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem}')
         self.push(new_ident)
 
     def A13(self, ident:SymbolTableEntry):
@@ -140,11 +140,11 @@ class SemanticEngine:
         if t5.type.type_code != t2.type.type_code:
             Type_Error(4, f"Несовпадение типов в операции {t3}: {t5.type.type_code} ({t5.lexem}) и "
                           f"{t2.type.type_code} ({t2.lexem})")
+        t6 = self.symbol_table.add_temp_var(t2.type)
         if t3 in self.symbol_table.relation_codes:
-            self.push(self.symbol_table.get_base_type(TypeCode.typeBool))
-        else:
-            self.push(t2)
-        t6 = self.symbol_table.add_temp_var(t2)
+            t6.type = self.symbol_table.get_base_type(TypeCode.typeBool)
+        assert isinstance(t6, ST_Var)
+        self.push(t6)
         self.push((t6, t6.address))
         self.instruction_table.generate_instruction(t3, t4[0], t1[0], t6)
 
@@ -161,6 +161,7 @@ class SemanticEngine:
         self.A16(token)
 
     def A21(self, ident:SymbolTableEntry):
+        assert isinstance(ident, ST_Var)
         self.push(ident)
         self.push((ident, ident.address))
 
@@ -169,6 +170,7 @@ class SemanticEngine:
 
     def A23(self, ident:SymbolTableEntry):
         self.check_cat(ident, Category.catVarName, 3, f"Идентификатор {ident.lexem} должен быть именем переменной")
+        assert isinstance(ident, ST_Var)
         self.push(ident)
         self.push((ident, ident.address))
 
@@ -178,6 +180,7 @@ class SemanticEngine:
         if t2.type.type_code != TypeCode.typeBool:
             Type_Error(6, f"Несовпадение типов в операции {OpCode.opNot}: {t2.type.type_code} ({t2.lexem}) и {TypeCode.typeBool}")
         t = self.symbol_table.add_temp_var(self.symbol_table.get_base_type(TypeCode.typeBool))
+        assert isinstance(t, ST_Var)
         self.instruction_table.generate_instruction(OpCode.opNot, t1[0], -1, t)
         self.push(t2)
         self.push((t, t.address))
@@ -210,12 +213,17 @@ class SemanticEngine:
 
     def A29(self, ident):
         parent_record_id = self.pop()[0]
+        assert isinstance(parent_record_id, ST_Var)
+        f_type = self.symbol_table.find_lexem(f"{parent_record_id.type.lexem}.{ident.lexem}")
+        if not f_type or f_type.category != Category.catTypeName:
+            Type_Error(5, f"Идентификатор поля {ident.lexem} должен быть определён")
         factor_typ = self.pop()
-        fields = self.symbol_table.find_lexem(parent_record_id.lexem).fields
+        fields = parent_record_id.fields
         if not fields:
-            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.lexem} не определено")
         if not ident.lexem.split(".")[-1] in [field.lexem.split(".")[-1] for field in fields]:
-            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.type_ptr.lexem} не определено")
+            Type_Error(6, f"Поле {ident.lexem.split('.')[-1]} для структуры {parent_record_id.type.lexem} не определено")
         new_ident = self.symbol_table.find_lexem(f'{parent_record_id.lexem}.{ident.lexem.split(".")[-1]}')
+        assert isinstance(new_ident, ST_Var)
         self.push(new_ident)
         self.push((new_ident, new_ident.address))

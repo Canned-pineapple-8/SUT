@@ -6,18 +6,47 @@ from typing import Dict, List, Optional
 
 class SymbolTableEntry:
     """
-    Запись в таблице символов
+    Базовая запись таблицы символов
     """
-    def __init__(self, lex):
-        self.lexem = lex  # лексема
-        self.category = Category.catNoCat  # категория
-        self.type = None  # тип
-        self.fields = None  # поля (для структур)
-        self.address = -1  # адрес (для переменных/полей)
-        self.offset = -1  # смещение (для полей)
+    def __init__(self, lexem: str, category:Category = Category.catNoCat):
+        self.lexem = lexem
+        self.category = category
 
     def __str__(self):
-        return f"{self.lexem}"
+        return self.lexem
+
+
+class ST_Var(SymbolTableEntry):
+    def __init__(self, lexem: str, category:Category = Category.catVarName):
+        super().__init__(lexem, category)
+
+        self.type: Optional["ST_Type"] = None
+        self.fields: Optional[List["ST_Var"]] = None
+        self.address: int = -1
+        self.offset: int = -1
+
+    @classmethod
+    def from_base(cls, entry: SymbolTableEntry) -> "ST_Var":
+        var = cls(entry.lexem, entry.category)
+        return var
+
+
+class ST_Type(SymbolTableEntry):
+    def __init__(self, lexem: str, category: Category = Category.catTypeName):
+        super().__init__(lexem, category)
+
+        self.width: Optional[int] = None
+        self.type_code: Optional[TypeCode] = None
+
+        self.fields: Optional[List["ST_Type"]] = None
+        self.offset: Optional[int] = None
+        self.type: Optional["ST_Type"] = None
+
+    @classmethod
+    def from_base(cls, entry: SymbolTableEntry) -> "ST_Type":
+        t = cls(entry.lexem, entry.category)
+        t.width = 0
+        return t
 
 
 class SymbolTable:
@@ -43,6 +72,16 @@ class SymbolTable:
         for entry in self.entries:
             text += str(entry) + '\n'
         return text
+
+    def replace_entry(self, old_entry:SymbolTableEntry, new_entry:SymbolTableEntry) -> Optional[int]:
+        if old_entry.lexem not in self.orders:
+            return None
+        self.entries[self.orders[old_entry.lexem]] = new_entry
+        self.orders[new_entry.lexem] = self.orders[old_entry.lexem]
+        if old_entry.lexem != new_entry.lexem:
+            self.orders.pop(old_entry.lexem)
+
+        return self.orders[new_entry.lexem]
 
     def get_record_type(self, lexem:str) -> Optional[SymbolTableEntry]:
         """
@@ -77,42 +116,93 @@ class SymbolTable:
         self.entries.append(entry)
         return entry
 
+    def add_record_type(self, st_pointer: SymbolTableEntry) -> SymbolTableEntry:
+        """
+        Добавить в таблицу символов тип структуры по идентификатору
+        :param st_pointer: указатель на идентификатор
+        :return: указатель на добавленный тип
+        """
+        r_type_pointer = ST_Type.from_base(st_pointer)
+        r_type_pointer.category = Category.catTypeName
+        r_type_pointer.type_code = TypeCode.typeRecord
+        self.replace_entry(st_pointer, r_type_pointer)
+        self.record_types[r_type_pointer.lexem] = r_type_pointer
+        return r_type_pointer
+
+    def add_field_type(self, st_pointer: SymbolTableEntry, r_type_pointer:SymbolTableEntry, f_base_type_pointer:SymbolTableEntry) -> SymbolTableEntry:
+        assert isinstance(f_base_type_pointer, ST_Type)
+        f_type_pointer = ST_Type.from_base(st_pointer)
+        f_type_pointer.category = Category.catTypeName
+
+        f_type_pointer.lexem = f"{r_type_pointer.lexem}.{st_pointer.lexem}"  # поменяли лексему на "структура.поле"
+        f_type_pointer.width = f_base_type_pointer.width  # скопировали размер базового типа
+        f_type_pointer.type_code = TypeCode.typeField  # выставили тип - поле
+
+        f_type_pointer.type = f_base_type_pointer  # выставили указатель на базовый тип
+
+        self.bind_field(f_type_pointer, r_type_pointer)  # рассчитали смещение и обновили размер структуры
+
+        self.replace_entry(st_pointer, f_type_pointer)
+        self.record_types[f_type_pointer.lexem] = f_type_pointer
+        return f_type_pointer
+
+    def bind_field(self, field:SymbolTableEntry, record:SymbolTableEntry):
+        """
+        Привязать поле к структуре
+        """
+        assert isinstance(field, ST_Type)
+        assert isinstance(record, ST_Type)
+
+        base_addr = record.width
+        while base_addr % field.width != 0:
+            base_addr += 1
+        field.offset = base_addr
+        if record.fields is None:
+            record.fields = [field]
+        else:
+            record.fields.append(field)
+        record.width = base_addr + field.width
+
+
     def add_type(self, st_pointer: SymbolTableEntry, category: Category, new_type: SymbolTableEntry):
         """
         Добавить тип уже существующей лексеме
         """
-        if st_pointer.category != Category.catNoCat:
-            if st_pointer.category != Category.catConst:
-                Type_Error(1, f"Идентификатор {st_pointer.lexem} должен быть уникальным")
+        assert isinstance(new_type, ST_Type)
+        if st_pointer.category != Category.catNoCat and st_pointer.category != Category.catConst:
+            Type_Error(1, f"Идентификатор {st_pointer.lexem} должен быть уникальным")
 
-        st_pointer.category = category
-        st_pointer.type = new_type.type
-        st_pointer.type.type_ptr = new_type
-        if new_type.type.type_code not in self.base_types.keys():
-            self.record_types[new_type.lexem] = new_type
+        var_pointer = ST_Var.from_base(st_pointer)
+        var_pointer.category = category
+        var_pointer.type = new_type
 
         if category == Category.catVarName:
-            while self.next_addr % new_type.type.width != 0:
+
+            while self.next_addr % new_type.width != 0:
                 self.next_addr += 1
-            st_pointer.address = self.next_addr
-            self.next_addr += new_type.type.width
+            var_pointer.address = self.next_addr
+            self.next_addr += new_type.width
 
-            # обработка структур
-            if new_type.type.type_code == TypeCode.typeRecord:
-                self.next_addr -= new_type.type.width
-                for field in new_type.fields:
-                    pnt = self.add_lexem(f'{st_pointer.lexem}.{field.lexem.split(".")[-1]}')
-                    if field.type.type_code in self.base_types.keys():
-                        self.add_type(pnt, Category.catVarName, self.get_base_type(field.type.type_code))
+            if new_type.type_code == TypeCode.typeRecord:
+                self.next_addr -= new_type.width
+                for t_field in new_type.fields:
+                    v_field = self.add_lexem(f'{var_pointer.lexem}.{t_field.lexem.split(".")[-1]}')
+                    if t_field.type.type_code in self.base_types.keys():
+                        self.add_type(v_field, Category.catVarName, self.get_base_type(t_field.type.type_code))
                     else:
-                        self.add_type(pnt, Category.catVarName, self.get_record_type(field.type.type_ptr.lexem))
-                    pnt.type.type_ptr = field
-                    pnt.address = st_pointer.address + field.offset
+                        self.add_type(v_field, Category.catVarName, self.get_record_type(t_field.type.lexem))
+                    v_field.type = t_field
+                    v_field.address = var_pointer.address + t_field.offset
+                    v_field.offset = t_field.offset
 
-                    if st_pointer.fields is None:
-                        st_pointer.fields = [pnt]
+                    if var_pointer.fields is None:
+                        var_pointer.fields = [v_field]
                     else:
-                        st_pointer.fields.append(pnt)
+                        var_pointer.fields.append(v_field)
+
+        self.replace_entry(st_pointer, var_pointer)
+        return var_pointer
+
 
     def add_temp_var(self, var_type: SymbolTableEntry) -> SymbolTableEntry:
         """
@@ -121,35 +211,25 @@ class SymbolTable:
         temp_name = f't{self.temp_var_name}'
         self.temp_var_name += 1
         entry = self.add_lexem(temp_name)
-        self.add_type(entry, Category.catVarName, var_type)
+        t_temp_var = self.add_type(entry, Category.catVarName, var_type)
+        return t_temp_var
 
-        return entry
-
-    def add_field(self, record:SymbolTableEntry, field:SymbolTableEntry):
-        """
-        Привязать поле к структуре
-        """
-        base_addr = record.type.width
-        while base_addr % field.type.width != 0:
-            base_addr += 1
-        field.offset = base_addr
-        if record.fields is None:
-            record.fields = [field]
-        else:
-            record.fields.append(field)
-        record.type.width = base_addr + field.type.width
 
     def add_types(self):
         """
         Инициализировать таблицу базовыми типами
         """
         base_types = [TypeCode.typeInt, TypeCode.typeFloat, TypeCode.typeBool, TypeCode.typeVoid]
+        base_width = [4, 8, 1, 0]
         type_words = ["Int", "Float", "Boolean", "Void"]
         for i in range(len(base_types)):
             pnt = self.add_lexem(type_words[i])
-            pnt.category = Category.catTypeName
-            pnt.type = Type(base_types[i])
-            self.base_types[base_types[i]] = pnt
+            t_pnt = ST_Type.from_base(pnt)
+            t_pnt.category = Category.catTypeName
+            t_pnt.width = base_width[i]
+            t_pnt.type_code = base_types[i]
+            self.replace_entry(pnt, t_pnt)
+            self.base_types[base_types[i]] = t_pnt
 
     def add_constants(self):
         """
@@ -168,13 +248,13 @@ class SymbolTable:
         text = ""
         variables = []
         for entry in self.entries:
-            if entry.address != -1:
+            if isinstance(entry, ST_Var) and entry.address is not None and entry.address != -1:
                 variables.append(entry)
         variables.sort(key=lambda e: e.address)
 
         for entry in variables:
-            if entry.type.type_code == TypeCode.typeRecord and entry.type.type_ptr is not None:
-                record_name = entry.type.type_ptr.lexem
+            if entry.type.type_code == TypeCode.typeRecord and entry.type is not None:
+                record_name = entry.type.lexem
             else:
                 record_name = ""
 
